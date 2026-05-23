@@ -11,6 +11,9 @@
 - 做 BSR 与类目穿透：扫描 Best Sellers、Movers & Shakers、New Releases、Most Wished For 等榜单，并通过子类目发现 Top 100 以外的机会。
 - 做店铺监控：从品牌店铺页提取唯一 ASIN，建立快照，对比新增、下架和产品池变化。
 
+BSR 榜单抓取注意：
+- Amazon 类目榜单虽然通常显示为每页 50 个，但当前页面常常只首屏渲染 30 个；抓取前需要先核对期望数量，再滚动补齐，不能直接把首屏结果当全量。
+
 ## 使用前提
 
 - OpenClaw

@@ -259,24 +259,79 @@ JSON.stringify(Array.from(document.querySelectorAll('[data-component-type="s-sea
 原则：
 
 - 优先遍历子类目榜单，不要暴力翻搜索页。
-- 每个榜单页面预计最多 50 个左右可见商品，滚动不足会漏数据。
+- Amazon 类目榜单通常每页名义展示 50 个商品，但当前页面常常只首屏渲染 30 个；不要把首屏 `querySelectorAll('.p13n-sc-uncoverable-faceout')` 的结果直接当全量。
+- 每页先做完整性检查：比较 `data-client-recs-list` 里的期望数量与当前 DOM 已渲染数量；若未补齐，先滚动再抓取。
 - 页面异常时截图确认，不要把空结果当作类目无产品。
+
+先做完整性探测：
+
+```javascript
+(function () {
+  var root = document.querySelector('.p13n-desktop-grid');
+  var meta = [];
+  try {
+    meta = JSON.parse(root?.getAttribute('data-client-recs-list') || '[]');
+  } catch (err) {}
+  var cards = Array.from(document.querySelectorAll('.p13n-desktop-grid [id^="p13n-asin-index-"] [data-asin]'));
+  return JSON.stringify({
+    url: location.href,
+    expectedCount: meta.length || 0,
+    renderedCount: cards.length,
+    firstExpectedRank: meta[0]?.metadataMap?.['render.zg.rank'] || '',
+    lastExpectedRank: meta.length ? meta[meta.length - 1].metadataMap?.['render.zg.rank'] || '' : '',
+    nextPageHref: document.querySelector('.a-pagination .a-last a')?.getAttribute('href') || ''
+  });
+})()
+```
+
+如果 `renderedCount < expectedCount`：
+
+1. 分段滚动到页面底部，每次滚动后执行 `browser_wait`，等待 `document.querySelectorAll('.p13n-desktop-grid [id^="p13n-asin-index-"] [data-asin]').length` 增长。
+2. 反复探测，直到 `renderedCount === expectedCount`，或连续两次探测不再增长。
+3. 若仍未补齐，不要继续保存结果；必须截图并说明“当前页面只渲染了 N / 50 个商品，榜单不完整”。
 
 BSR 页面产品提取 JS：
 
 ```javascript
-JSON.stringify(Array.from(document.querySelectorAll('.p13n-sc-uncoverable-faceout')).map(function (card, i) {
-  var asin = card.id || '';
-  var title = card.querySelector('[class*=line-clamp]')?.textContent?.trim() || '';
-  var rating = card.querySelector('a[aria-label*="stars"]')?.getAttribute('aria-label') || '';
-  var text = card.textContent.replace(/\s+/g, ' ');
-  var price = (text.match(/\$\s?\d+(?:\.\d{2})?/) || [''])[0];
-  return { rank: i + 1, asin: asin, title: title, rating: rating, price: price };
-}).filter(function (x) { return x.asin || x.title; }))
+(function () {
+  var rows = Array.from(document.querySelectorAll('.p13n-desktop-grid [id^="p13n-asin-index-"]'));
+  var items = rows.map(function (row) {
+    var wrapper = row.querySelector('[data-asin]');
+    if (!wrapper) return null;
+    var asin = wrapper.getAttribute('data-asin') || '';
+    var rankText = row.querySelector('.zg-bdg-text')?.textContent?.trim() || '';
+    var rank = parseInt((rankText.match(/\d+/) || ['0'])[0], 10) || null;
+    var title =
+      row.querySelector('img')?.getAttribute('alt')?.trim() ||
+      row.querySelector('[class*="line-clamp"]')?.textContent?.trim() ||
+      '';
+    var rating = row.querySelector('.a-icon-row a[aria-label*="out of 5 stars"]')?.getAttribute('aria-label') || '';
+    var reviews = row.querySelector('.a-icon-row .a-size-small')?.textContent?.trim() || '';
+    var price =
+      row.querySelector('.p13n-sc-price')?.textContent?.trim() ||
+      row.querySelector('[class*="p13n-sc-price"]')?.textContent?.trim() ||
+      '';
+    return { rank: rank, asin: asin, title: title, rating: rating, reviews: reviews, price: price };
+  }).filter(Boolean);
+
+  items.sort(function (a, b) {
+    return (a.rank || 9999) - (b.rank || 9999);
+  });
+
+  return JSON.stringify({
+    pageUrl: location.href,
+    count: items.length,
+    firstRank: items[0]?.rank || null,
+    lastRank: items.length ? items[items.length - 1].rank : null,
+    items: items
+  });
+})()
 ```
 
 输出要求：
 
+- 每页都要先报告 `expectedCount` 和 `renderedCount`；只有两者一致时，才能声称该页抓取完成。
+- 第 1 页和第 2 页都应各自补齐到 50；最终 Top 100 结果不应以 `30 + 30 = 60` 的不完整数据收尾。
 - 按子类目/榜单来源去重 ASIN。
 - 标注父类目独有、子类目独有、重复 ASIN。
 - 给出机会判断：价格带断层、评论断层、品牌集中、低评高排、新品上升。
