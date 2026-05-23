@@ -22,6 +22,9 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROBE_JS_PATH = SCRIPT_DIR / "bsr_probe.js"
 EXTRACT_JS_PATH = SCRIPT_DIR / "bsr_extract.js"
+COLLECT_JS_PATH = SCRIPT_DIR / "bsr_collect.js"
+EXPORT_JS_PATH = SCRIPT_DIR / "bsr_export.js"
+RESET_JS_PATH = SCRIPT_DIR / "bsr_reset.js"
 
 
 def probe_script() -> str:
@@ -30,6 +33,18 @@ def probe_script() -> str:
 
 def extract_script() -> str:
     return EXTRACT_JS_PATH.read_text(encoding="utf-8")
+
+
+def collect_script() -> str:
+    return COLLECT_JS_PATH.read_text(encoding="utf-8")
+
+
+def export_script() -> str:
+    return EXPORT_JS_PATH.read_text(encoding="utf-8")
+
+
+def reset_script() -> str:
+    return RESET_JS_PATH.read_text(encoding="utf-8")
 
 
 def _extract_meta_blob(page_html: str) -> str:
@@ -86,6 +101,36 @@ def extract_snapshot(page_html: str) -> dict:
         "lastRank": items[-1]["rank"] if items else None,
         "items": items,
     }
+
+
+def empty_state() -> dict:
+    return {
+        "expectedCount": 0,
+        "itemsByRank": {},
+        "collectedCount": 0,
+        "minCollectedRank": None,
+        "maxCollectedRank": None,
+        "isComplete": False,
+    }
+
+
+def merge_snapshot_into_state(state: dict, extracted: dict, probe: dict) -> dict:
+    merged = {
+        "expectedCount": max(state.get("expectedCount", 0), probe.get("expectedCount", 0)),
+        "itemsByRank": dict(state.get("itemsByRank", {})),
+    }
+    for item in extracted.get("items", []):
+        rank = item.get("rank")
+        if rank is None:
+            continue
+        merged["itemsByRank"][str(rank)] = item
+
+    items = sorted(merged["itemsByRank"].values(), key=lambda item: item.get("rank") or 9999)
+    merged["collectedCount"] = len(items)
+    merged["minCollectedRank"] = items[0]["rank"] if items else None
+    merged["maxCollectedRank"] = items[-1]["rank"] if items else None
+    merged["isComplete"] = bool(merged["expectedCount"]) and merged["collectedCount"] >= merged["expectedCount"]
+    return merged
 
 
 def build_test_fixture(expected_count: int, rendered_count: int, start_rank: int = 1) -> str:
@@ -146,7 +191,7 @@ def build_test_fixture(expected_count: int, rendered_count: int, start_rank: int
 
 
 def _print_usage() -> int:
-    print("Usage: bsr_runtime.py [probe-js|extract-js|probe-html PATH|extract-html PATH]")
+    print("Usage: bsr_runtime.py [reset-js|probe-js|extract-js|collect-js|export-js|probe-html PATH|extract-html PATH]")
     return 1
 
 
@@ -158,8 +203,17 @@ def main(argv: list[str]) -> int:
     if cmd == "probe-js":
         print(probe_script())
         return 0
+    if cmd == "reset-js":
+        print(reset_script())
+        return 0
     if cmd == "extract-js":
         print(extract_script())
+        return 0
+    if cmd == "collect-js":
+        print(collect_script())
+        return 0
+    if cmd == "export-js":
+        print(export_script())
         return 0
     if cmd in {"probe-html", "extract-html"}:
         if len(argv) < 3:

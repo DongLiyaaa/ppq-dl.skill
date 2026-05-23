@@ -13,7 +13,7 @@
 
 BSR 榜单抓取注意：
 - Amazon 类目榜单虽然通常显示为每页 50 个，但当前页面常常只首屏渲染 30 个；抓取前需要先核对期望数量，再滚动补齐，不能直接把首屏结果当全量。
-- 当前仓库已内置固定脚本：`scripts/bsr_probe.js`、`scripts/bsr_extract.js`、`scripts/bsr_runtime.py`，用于 BSR 页完整性检查和最终提取，避免临场手写提示词或 DOM 选择器。
+- 当前仓库已内置固定脚本：`scripts/bsr_reset.js`、`scripts/bsr_collect.js`、`scripts/bsr_export.js`、`scripts/bsr_runtime.py`，用于 BSR 页累计抓取和最终导出，避免临场手写提示词或 DOM 选择器。
 
 ## 使用前提
 
