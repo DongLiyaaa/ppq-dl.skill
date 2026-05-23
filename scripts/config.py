@@ -21,7 +21,16 @@ if os.path.exists(_config_path):
 
 SKILL_DIR = _cfg.get("SKILL_DIR", _skill_dir)
 CDP_BRIDGE_MCP = os.environ.get("CDP_BRIDGE_MCP", _cfg.get("CDP_BRIDGE_MCP", "cdp-bridge"))
+CDP_BRIDGE_TRANSPORT = os.environ.get(
+    "CDP_BRIDGE_TRANSPORT", _cfg.get("CDP_BRIDGE_TRANSPORT", "stdio")
+)
 CDP_BRIDGE_WS_PORT = os.environ.get("CDP_BRIDGE_WS_PORT", _cfg.get("CDP_BRIDGE_WS_PORT", "18765"))
+CDP_BRIDGE_HTTP_PORT = os.environ.get(
+    "CDP_BRIDGE_HTTP_PORT", _cfg.get("CDP_BRIDGE_HTTP_PORT", "8000")
+)
+CDP_BRIDGE_LOG_DIR = os.environ.get(
+    "CDP_BRIDGE_LOG_DIR", _cfg.get("CDP_BRIDGE_LOG_DIR", os.path.join(os.path.expanduser("~"), ".ppq-dl", "logs"))
+)
 
 
 def _default_output():

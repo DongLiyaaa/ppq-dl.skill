@@ -1,7 +1,7 @@
 ---
 name: ppq-dl
 description: ppq-dl 亚马逊卖家数据采集与分析 skill，通过 cdp-bridge MCP 接入真实 Chrome/Chromium 浏览器会话，抓取 Amazon 页面实时信息。重点用于采集商品详情、标题、价格、评分、评论数、库存、BSR、A+、图片、店铺 ASIN；分析关键词搜索结果中的自然位、广告位、目标 ASIN 排名、广告密度、价格带、评论断层和竞品分布；支持关键词发现、排名快照、类目穿透、榜单扫描、店铺监控和选品判断。触发词：亚马逊商品信息、抓取商品、关键词自然位、广告位、关键词排名、目标 ASIN 排名、竞品分析、产品情报、BSR、类目穿透、店铺监控、竞对上新、选品判断、ppq-dl。
-compatibility: OpenClaw skill；需要 jq、curl、python3、Chrome/Chromium、uv/uvx、cdp-bridge MCP 浏览器扩展。首次使用运行 `bash setup.sh`，它会配置 `cdp-bridge` MCP 并提示浏览器扩展加载路径。
+compatibility: OpenClaw skill；需要 jq、curl、python3、Chrome/Chromium、uv/uvx、cdp-bridge MCP 浏览器扩展。首次使用运行 `bash setup.sh`，它会优先复用已有 `uvx`，缺失时先尝试 `uv` 官方安装脚本，再在必要时使用可选兜底方案，随后配置 `cdp-bridge` MCP 并提示浏览器扩展加载路径。若本地 `stdio` 模式频繁断链，可用 `CDP_BRIDGE_TRANSPORT=streamable-http bash setup.sh` 切到更稳的常驻模式，并用 `bash scripts/cdp_bridge_doctor.sh` 做诊断。
 ---
 
 # ppq-dl
@@ -33,6 +33,7 @@ compatibility: OpenClaw skill；需要 jq、curl、python3、Chrome/Chromium、u
 - **浏览器层只用 `cdp-bridge` MCP**：优先调用 `browser_get_tabs`、`browser_switch_tab`、`browser_navigate`、`browser_wait`、`browser_execute_js`、`browser_scan`、`browser_screenshot`。
 - **复用用户真实登录态**：先查找已打开的 Amazon 标签页；没有再打开新页。不要要求用户导出 Cookie，不要把账号态搬到脚本里。
 - **先检查再执行**：每次任务先确认 `cdp-bridge` MCP 可见、Chrome 已打开、扩展已连接、目标页面可访问。
+- **先等自动重连再判死链**：扩展首次或短暂断链后会自动重连；先等 5 到 10 秒，再做一次 `browser_get_tabs` 或运行 `bash scripts/cdp_bridge_doctor.sh`。
 - **截图用于关键确认**：登录状态、验证码、首次探索新页面、数据异常、弹窗或选项卡切换后，都必须用 `browser_screenshot` 确认。
 - **有 MCP 工具就不用旧脚本直控浏览器**：本包保留 Python 脚本只做非浏览器数据处理和持久化；需要页面交互时由 OpenClaw 调用 cdp-bridge MCP 工具完成。
 - **不要伪造成功**：下载、抓取、排名、BSR、店铺监控都必须有真实页面数据或明确说明阻塞原因。
@@ -57,6 +58,44 @@ openclaw mcp set cdp-bridge '{"command":"uvx","args":["cdp-bridge@latest"]}'
 
 5. 按脚本输出的路径，在 Chrome/Chromium 的 `chrome://extensions/` 里开启开发者模式，并加载 `tmwd_cdp_bridge` 扩展目录。
 6. 重启 OpenClaw gateway 或新开会话后，再次确认 MCP 工具可用。
+7. 如果本地 `stdio` 模式在长任务中频繁断链，执行：
+
+```bash
+CDP_BRIDGE_TRANSPORT=streamable-http bash setup.sh
+bash scripts/run_cdp_bridge_http.sh
+```
+
+8. 之后统一用下面命令做健康检查：
+
+```bash
+bash scripts/cdp_bridge_doctor.sh
+```
+
+安装策略要求：
+
+- 先复用系统里现成的 `uvx`，不要重复安装。
+- 若 `uvx` 缺失，优先走 `uv` 官方安装脚本。
+- 只有官方安装路径失败时，才把 Homebrew 视为可选兜底，而不是默认前提。
+- 本地默认仍是 `stdio` 模式；只有当断链明显影响使用时，才切换为 `streamable-http` 常驻模式。
+
+## 断链恢复规范
+
+当 OpenClaw 报 `cdp-bridge` 不可用、看不到页面或浏览器工具瞬时失联时，按下面顺序处理，不要直接从头重装：
+
+1. 先等待 5 到 10 秒，再重试一次 `browser_get_tabs`。
+2. 如果工具仍不可用，运行：
+
+```bash
+bash scripts/cdp_bridge_doctor.sh
+```
+
+3. 若当前是 `stdio` 模式：
+   - 新开 OpenClaw 会话或重启 OpenClaw gateway。
+   - 若仍反复断链，切换到 `streamable-http`。
+4. 若当前是 `streamable-http` 模式：
+   - 先执行 `bash scripts/run_cdp_bridge_http.sh`，确保常驻服务仍在。
+   - 再回到 OpenClaw 重试 `browser_get_tabs`。
+5. 只有在 `uvx` 丢失、扩展路径不存在或 MCP 配置被删时，才重新运行 `bash setup.sh`。
 
 ## cdp-bridge 工具映射
 

@@ -26,6 +26,14 @@
 bash setup.sh
 ```
 
+`setup.sh` 会优先复用系统已有的 `uvx`。如果缺失，它会先尝试 `uv` 官方安装脚本；只有官方路径失败时，才把 Homebrew 当成可选兜底，而不是前提依赖。
+默认会把 OpenClaw 配置成 `stdio` 模式；如果你在使用中频繁遇到 `cdp-bridge` 断链，可以切到更稳的常驻模式：
+
+```bash
+CDP_BRIDGE_TRANSPORT=streamable-http bash setup.sh
+bash scripts/run_cdp_bridge_http.sh
+```
+
 脚本会配置 OpenClaw MCP：
 
 ```bash
@@ -33,6 +41,26 @@ openclaw mcp set cdp-bridge '{"command":"uvx","args":["cdp-bridge@latest"]}'
 ```
 
 然后按提示在 Chrome 的 `chrome://extensions/` 中加载 `cdp-bridge` 扩展。
+
+## 断链恢复
+
+如果 OpenClaw 已经看到了 `browser_*` 工具，但执行时提示桥断开，不要先重装：
+
+1. 先等 5 到 10 秒，再重试一次 `browser_get_tabs`。`cdp-bridge` 扩展有自动重连机制。
+2. 运行：
+
+```bash
+bash scripts/cdp_bridge_doctor.sh
+```
+
+3. 如果当前是 `stdio` 模式且仍频繁断链，切到 `streamable-http` 常驻模式。
+4. 如果当前已经是 `streamable-http` 模式，先执行：
+
+```bash
+bash scripts/run_cdp_bridge_http.sh
+```
+
+再回到 OpenClaw 重试。
 
 ## 数据边界
 
