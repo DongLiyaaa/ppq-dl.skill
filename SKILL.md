@@ -259,56 +259,24 @@ JSON.stringify(Array.from(document.querySelectorAll('[data-component-type="s-sea
 原则：
 
 - 优先遍历子类目榜单，不要暴力翻搜索页。
-- Amazon 类目榜单通常每页名义展示 50 个商品，但当前页面常常只首屏渲染 30 个；不要把首屏 `querySelectorAll('.p13n-sc-uncoverable-faceout')` 的结果直接当全量。
-- 每页先做完整性检查：比较 `data-client-recs-list` 里的期望数量与当前 DOM 已渲染数量；若未补齐，先滚动再抓取。
-- BSR 榜单不要现场手写 DOM 选择器；统一使用仓库里的固定脚本：`scripts/bsr_reset.js`、`scripts/bsr_collect.js`、`scripts/bsr_export.js`，或通过 `python3 scripts/bsr_runtime.py reset-js|collect-js|export-js` 输出。
+- 每个榜单页面预计最多 50 个左右可见商品，滚动不足会漏数据。
 - 页面异常时截图确认，不要把空结果当作类目无产品。
 
-固定脚本入口：
-
-```bash
-python3 scripts/bsr_runtime.py reset-js
-python3 scripts/bsr_runtime.py collect-js
-python3 scripts/bsr_runtime.py export-js
-```
-
-如果要离线核对 HTML 快照，也可以运行：
-
-```bash
-python3 scripts/bsr_runtime.py probe-html /tmp/amazon_bsr_page.html
-python3 scripts/bsr_runtime.py extract-html /tmp/amazon_bsr_page.html
-```
-
-先执行重置脚本，清空当前页面的累计状态：
+BSR 页面产品提取 JS：
 
 ```javascript
-见 `scripts/bsr_reset.js`
-```
-
-然后循环执行收集脚本（`scripts/bsr_collect.js`）：
-
-```javascript
-见 `scripts/bsr_collect.js`
-```
-
-执行规范：
-
-1. 每次执行 `collect-js` 都会把当前可见的榜单窗口并入 `window.__PPQ_BSR_STATE`，然后自动把最后一条可见商品滚到视口底部，并继续整页下滑。
-2. 不要因为 `renderedCount` 一直是 30 就停止；这个页面可能是虚拟窗口，真正要看的进度是 `collectedCount` 和 `maxCollectedRank`。
-3. 只要 `shouldContinue = true`，就继续执行：`browser_wait` 一小段时间后再次运行 `collect-js`。
-4. 直到 `isComplete = true`，或 `collectedCount` 与 `maxCollectedRank` 连续多轮不再增长时，才允许判定为真的补不齐。
-5. 若连续多轮 `collectedCount` 和 `maxCollectedRank` 都不再增长，仍未到 `expectedCount`，必须截图并说明“当前页面累计只拿到 N / 50 个商品，榜单不完整”。
-
-补齐后再执行导出脚本（`scripts/bsr_export.js`）：
-
-```javascript
-见 `scripts/bsr_export.js`
+JSON.stringify(Array.from(document.querySelectorAll('.p13n-sc-uncoverable-faceout')).map(function (card, i) {
+  var asin = card.id || '';
+  var title = card.querySelector('[class*=line-clamp]')?.textContent?.trim() || '';
+  var rating = card.querySelector('a[aria-label*="stars"]')?.getAttribute('aria-label') || '';
+  var text = card.textContent.replace(/\s+/g, ' ');
+  var price = (text.match(/\$\s?\d+(?:\.\d{2})?/) || [''])[0];
+  return { rank: i + 1, asin: asin, title: title, rating: rating, price: price };
+}).filter(function (x) { return x.asin || x.title; }))
 ```
 
 输出要求：
 
-- 每页都要先报告 `expectedCount`、`renderedCount`、`collectedCount`、`maxCollectedRank`；只有累计状态达到 `expectedCount`，才能声称该页抓取完成。
-- 第 1 页和第 2 页都应各自补齐到 50；最终 Top 100 结果不应以 `30 + 30 = 60` 的不完整数据收尾。
 - 按子类目/榜单来源去重 ASIN。
 - 标注父类目独有、子类目独有、重复 ASIN。
 - 给出机会判断：价格带断层、评论断层、品牌集中、低评高排、新品上升。
