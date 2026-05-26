@@ -13,7 +13,7 @@ metadata:
 
 Hermes 版 `ppq-dl` 用于在真实浏览器会话里读取 Amazon 页面数据，服务于商品调研、关键词自然位/广告位分析、BSR 扫描、店铺监控和排名快照。
 
-这个目录是 **Hermes 适配层**。它不替换、不改写仓库根目录的 OpenClaw skill。
+这个目录是 Hermes 适配层，不替换仓库根目录的 OpenClaw 版。
 
 ## 适用边界
 
@@ -23,49 +23,29 @@ Hermes 版 `ppq-dl` 用于在真实浏览器会话里读取 Amazon 页面数据�
 
 ## 安装与前置
 
-首次在本地仓库接入 Hermes，优先用总安装脚本：
+首次使用，优先执行：
 
 ```bash
 bash "${HERMES_SKILL_DIR}/scripts/install_hermes.sh"
 ```
 
-如果当前还没有 `HERMES_SKILL_DIR`，直接从仓库运行：
+如果当前还没有 `HERMES_SKILL_DIR`，也可以从仓库运行：
 
 ```bash
 bash /absolute/path/to/ppq-dl/hermes/ecommerce/ppq-dl/scripts/install_hermes.sh
 ```
 
-如果你希望它顺手启动本地调试浏览器，并在能探测到 websocket 时自动写入 `browser.cdp_url`：
+如果你希望它顺手启动本地调试浏览器：
 
 ```bash
 bash /absolute/path/to/ppq-dl/hermes/ecommerce/ppq-dl/scripts/install_hermes.sh --launch-browser
 ```
 
-这个脚本会：
+完成后：
 
-1. 把 skill 安装到 `~/.hermes/skills/ecommerce/ppq-dl`
-2. 合并 Hermes `toolsets`，确保至少包含 `hermes-cli`、`browser`、`terminal`
-3. 执行本 skill 的 `setup.sh`
-4. 若本地已有可用 CDP 端口，则自动写入 `browser.cdp_url`
-
-低阶安装方式仍保留，只做本地 skill 挂载：
-
-```bash
-bash /absolute/path/to/ppq-dl/hermes/ecommerce/ppq-dl/scripts/install_local.sh
-```
-
-手动方式下，再执行：
-
-```bash
-hermes config set toolsets '["hermes-cli", "browser", "terminal"]'
-bash "${HERMES_SKILL_DIR}/setup.sh"
-```
-
-若要复用真实 Chrome/Brave/Chromium 登录态，优先在 Hermes CLI 里执行：
-
-```text
-/browser connect
-```
+1. 进入 Hermes CLI
+2. 如有需要执行 `/browser connect`
+3. 开始使用 `ppq-dl`
 
 如果还没有带调试端口的本地浏览器，可先启动：
 
@@ -79,36 +59,26 @@ bash "${HERMES_SKILL_DIR}/scripts/launch_local_chrome.sh"
 bash "${HERMES_SKILL_DIR}/scripts/hermes_browser_doctor.sh"
 ```
 
-完整浏览器接入说明见：
+更细的浏览器接入说明见 `references/browser-cdp-setup.md`。
 
-- `references/browser-cdp-setup.md`
+## 使用原则
 
-## 核心原则
+- 优先复用真实浏览器登录态。
+- 关键页面先确认状态，再提取数据。
+- 页面异常时先截图或观察，再下结论。
+- 结构化数据继续使用本 skill 自带脚本保存。
 
-- **不碰根目录 OpenClaw 架构**：根目录 `SKILL.md`、`setup.sh` 继续只服务 OpenClaw。
-- **Hermes 浏览器层优先用内置 `browser_*`**：`browser_navigate`、`browser_snapshot`、`browser_scroll`、`browser_console`、`browser_vision`。
-- **能复用真实登录态就不用匿名浏览器**：涉及 Amazon 登录态、地区态和可见页面差异时，优先 `/browser connect` 或配置 `browser.cdp_url`。
-- **页面提取优先用 JS 表达式**：默认使用 `browser_console(expression=...)` 返回结构化 JSON；当需要原生 CDP 能力时再用 `browser_cdp`。
-- **关键状态必须确认**：登录页、验证码、类目榜单、店铺页首次进入、页面异常时，必须先 `browser_vision` 或 `browser_snapshot(full=true)` 再下结论。
-- **保留核心 Python 数据脚本**：关键词发现、目录索引和结构化持久化继续走本 skill 自带 `scripts/*.py`，不改执行语义。
+## 浏览器工具
 
-## Hermes 工具映射
+Hermes 版优先使用这些工具：
 
-| 目标 | 首选工具 |
-|---|---|
-| 打开 Amazon 页面 | `browser_navigate` |
-| 读取页面结构与可交互元素 | `browser_snapshot` |
-| 执行页面 JS 提取结构化结果 | `browser_console(expression=...)` |
-| 滚动触发懒加载 | `browser_scroll` |
-| 检查视觉状态、验证码、复杂布局 | `browser_vision` |
-| 原生 CDP 逃生口 | `browser_cdp` |
+- `browser_navigate`
+- `browser_snapshot`
+- `browser_scroll`
+- `browser_console(expression=...)`
+- `browser_vision`
 
-Hermes 没有 OpenClaw 那组 `browser_get_tabs` / `browser_execute_js` / `browser_wait` 工具名，所以这里统一改成：
-
-- 页面打开与切换：`browser_navigate`
-- JS 提取：`browser_console(expression=...)`
-- 可视确认：`browser_snapshot` / `browser_vision`
-- 延迟加载：滚动后再次 `browser_snapshot` 或 `browser_console`
+只有在确实需要原生 CDP 能力时，才使用 `browser_cdp`。
 
 ## 登录态与页面进入
 

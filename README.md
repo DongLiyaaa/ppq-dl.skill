@@ -1,6 +1,11 @@
 # ppq-dl
 
-`ppq-dl` 是一个面向 OpenClaw 的亚马逊卖家数据采集与分析 skill，通过 `cdp-bridge` MCP 接入真实 Chrome/Chromium 浏览器会话，读取 Amazon 页面上的实时可见数据。
+`ppq-dl` 是一个亚马逊卖家数据采集与分析 skill，当前同时提供：
+
+- OpenClaw 版
+- Hermes 版
+
+它通过真实浏览器会话读取 Amazon 页面上的可见数据，适合做商品调研、关键词自然位/广告位分析、BSR 扫描、店铺监控和排名快照。
 
 ## 主要用途
 
@@ -11,14 +16,11 @@
 - 做 BSR 与类目穿透：扫描 Best Sellers、Movers & Shakers、New Releases、Most Wished For 等榜单，并通过子类目发现 Top 100 以外的机会。
 - 做店铺监控：从品牌店铺页提取唯一 ASIN，建立快照，对比新增、下架和产品池变化。
 
-## 使用前提
+## 如何使用
 
-- OpenClaw
-- Chrome 或 Chromium
-- `uv` / `uvx`
-- `python3`
-- `jq`、`curl`
-- `cdp-bridge` MCP 浏览器扩展
+### OpenClaw
+
+适合已经在用 OpenClaw 的场景。
 
 首次使用：
 
@@ -26,52 +28,53 @@
 bash setup.sh
 ```
 
-`setup.sh` 会优先复用系统已有的 `uvx`。如果缺失，它会先尝试 `uv` 官方安装脚本；只有官方路径失败时，才把 Homebrew 当成可选兜底，而不是前提依赖。
-默认会把 OpenClaw 配置成 `stdio` 模式；如果你在使用中频繁遇到 `cdp-bridge` 断链，可以切到更稳的常驻模式：
+然后按提示完成两件事：
 
-```bash
-CDP_BRIDGE_TRANSPORT=streamable-http bash setup.sh
-bash scripts/run_cdp_bridge_http.sh
-```
+1. 配置 `cdp-bridge`
+2. 在 Chrome 的 `chrome://extensions/` 中加载扩展
 
-脚本会配置 OpenClaw MCP：
-
-```bash
-openclaw mcp set cdp-bridge '{"command":"uvx","args":["cdp-bridge@latest"]}'
-```
-
-然后按提示在 Chrome 的 `chrome://extensions/` 中加载 `cdp-bridge` 扩展。
-
-## 断链恢复
-
-如果 OpenClaw 已经看到了 `browser_*` 工具，但执行时提示桥断开，不要先重装：
-
-1. 先等 5 到 10 秒，再重试一次 `browser_get_tabs`。`cdp-bridge` 扩展有自动重连机制。
-2. 运行：
+如果后面出现断链，优先执行：
 
 ```bash
 bash scripts/cdp_bridge_doctor.sh
 ```
 
-3. 如果当前是 `stdio` 模式且仍频繁断链，切到 `streamable-http` 常驻模式。
-4. 如果当前已经是 `streamable-http` 模式，先执行：
+更详细的 OpenClaw 说明以 [SKILL.md](/Users/dongli/codex/ppq-dl/SKILL.md) 为准。
+
+### Hermes
+
+适合已经在用 Hermes 的场景。
+
+从仓库根目录执行：
 
 ```bash
-bash scripts/run_cdp_bridge_http.sh
+bash hermes/ecommerce/ppq-dl/scripts/install_hermes.sh
 ```
 
-再回到 OpenClaw 重试。
+如果你希望安装时顺手拉起本地调试浏览器：
+
+```bash
+bash hermes/ecommerce/ppq-dl/scripts/install_hermes.sh --launch-browser
+```
+
+安装完成后：
+
+1. 进入 Hermes CLI
+2. 如有需要执行 `/browser connect`
+3. 开始使用 `ppq-dl`
+
+Hermes 版入口在：
+
+- [hermes/README.md](/Users/dongli/codex/ppq-dl/hermes/README.md)
+- [hermes/ecommerce/ppq-dl/SKILL.md](/Users/dongli/codex/ppq-dl/hermes/ecommerce/ppq-dl/SKILL.md)
 
 ## 数据边界
 
 `ppq-dl` 只基于浏览器可见页面、Amazon Suggest API 和公开页面信息做判断。它不会还原真实销量、完整广告预算或 Amazon 后台不可见数据。遇到未登录、验证码、地区限制、页面改版或加载失败时，应停止并说明阻塞原因。
 
-## Skill 入口
+## 入口文件
 
-OpenClaw 的正式 skill 入口是：
+- OpenClaw：`SKILL.md`
+- Hermes：`hermes/ecommerce/ppq-dl/SKILL.md`
 
-```text
-SKILL.md
-```
-
-详细工作流、页面提取规则、输出格式和持久化规范请以 `SKILL.md` 为准。
+详细工作流、页面提取规则、输出格式和持久化规范，请以对应平台的 `SKILL.md` 为准。
