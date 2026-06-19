@@ -4,6 +4,8 @@
 
 - OpenClaw 版
 - Hermes 版
+- Codex 版
+- Claude Code 版
 
 它通过真实浏览器会话读取 Amazon 页面上的可见数据，适合做商品调研、关键词自然位/广告位分析、BSR 扫描、店铺监控和排名快照。
 
